@@ -1,1 +1,26 @@
 #! /usr/bin/sh
+
+mkfifo .pype
+while [[ -a .pype ]]
+do
+    cat .pype | \
+        while read line
+        do
+            case "$line" in
+                "")
+                    ;;
+                KILL_PYPER)
+                    echo "sys.exit(0)"
+                    rm .pype
+                    break
+                    ;;
+                EOF)
+                    break
+                    ;;
+                *)
+                    echo "$line"
+                    ;;
+
+            esac
+        done
+done | python -i -c "import sys;sys.ps1 = \"\";sys.ps2 = \"\""
