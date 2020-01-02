@@ -1,5 +1,6 @@
 #! /usr/bin/sh
 
+PYTHON=/bin/python3
 mkfifo .pype
 while [[ -a .pype ]]
 do
@@ -23,4 +24,4 @@ do
 
             esac
         done
-done | python -i -c "import sys;sys.ps1 = \"\";sys.ps2 = \"\""
+done | $PYTHON -i -c "import sys;sys.ps1 = \"\";sys.ps2 = \"\""
