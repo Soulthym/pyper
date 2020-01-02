@@ -1,18 +1,34 @@
 #! /usr/bin/sh
-
-PYTHON=/bin/python3
-mkfifo .pype
-while [[ -a .pype ]]
+PIPE_NAME=".pype"
+KILL_STRING="KILL_PYPER"
+PIPED_SHELL="/bin/python3"
+for arg in "$@"
 do
-    cat .pype | \
+    case $arg in 
+        -s=*|--shell=*)
+            PIPED_SHELL="${arg#*=}"
+            ;;
+        -k=*|--kill-string=*)
+            KILL_STRING="${arg#*=}"
+            ;;
+        -p=*|-n=*|--pipe-name=*)
+            PIPE_NAME="${arg#*=}"
+            ;;
+    esac
+done
+
+mkfifo "$PIPE_NAME"
+while [[ -a "$PIPE_NAME" ]]
+do
+    cat "$PIPE_NAME" | \
         while read line
         do
             case "$line" in
                 "")
                     ;;
-                KILL_PYPER)
+                "$KILL_STRING")
                     echo "sys.exit(0)"
-                    rm .pype
+                    rm "$PIPE_NAME"
                     break
                     ;;
                 EOF)
@@ -24,4 +40,4 @@ do
 
             esac
         done
-done | $PYTHON -i -c "import sys;sys.ps1 = \"\";sys.ps2 = \"\""
+done | $PIPED_SHELL -i -c "import sys;sys.ps1 = \"\";sys.ps2 = \"\""
