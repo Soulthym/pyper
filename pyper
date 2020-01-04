@@ -2,14 +2,26 @@
 PIPE_NAME=".pype"
 KILL_STRING="KILL_PYPER"
 PIPED_SHELL="/bin/python3"
+EXIT_COMMAND="sys.exit(0)"
+INIT_COMMAND="import sys;sys.ps1 = \"\";sys.ps2 = \"\""
+SHELL_ARGS="-i -c"
 for arg in "$@"
 do
     case $arg in 
         -s=*|--shell=*)
             PIPED_SHELL="${arg#*=}"
             ;;
+        -a=*|--shell-args=*)
+            SHELL_ARGS="${arg#*=}"
+            ;;
         -k=*|--kill-string=*)
             KILL_STRING="${arg#*=}"
+            ;;
+        -i=*|--init-command=*)
+            INIT_COMMAND="${arg#*=}"
+            ;;
+        -c=*|--exit-command=*)
+            EXIT_COMMAND="${arg#*=}"
             ;;
         -p=*|-n=*|--pipe-name=*)
             PIPE_NAME="${arg#*=}"
@@ -27,7 +39,7 @@ do
                 "")
                     ;;
                 "$KILL_STRING")
-                    echo "sys.exit(0)"
+                    echo "$EXIT_COMMAND"
                     rm "$PIPE_NAME"
                     break
                     ;;
@@ -40,4 +52,4 @@ do
 
             esac
         done
-done | $PIPED_SHELL -i -c "import sys;sys.ps1 = \"\";sys.ps2 = \"\""
+done | $PIPED_SHELL $SHELL_ARGS "$INIT_COMMAND"
