@@ -2,54 +2,70 @@
 PIPE_NAME=".pype"
 KILL_STRING="KILL_PYPER"
 PIPED_SHELL="/bin/python3"
-EXIT_COMMAND="sys.exit(0)"
-INIT_COMMAND="import sys;sys.ps1 = \"\";sys.ps2 = \"\""
-SHELL_ARGS="-i -c"
+PIPED_SHELL_ARGS='-i -c "import sys;sys.ps1 = \"\";sys.ps2 = \"\""'
 for arg in "$@"
 do
-    case $arg in 
+    case $arg in
         -s=*|--shell=*)
             PIPED_SHELL="${arg#*=}"
             ;;
-        -a=*|--shell-args=*)
-            SHELL_ARGS="${arg#*=}"
+        -a=*|--args=*)
+            PIPED_SHELL_ARGS="${arg#*=}"
             ;;
         -k=*|--kill-string=*)
             KILL_STRING="${arg#*=}"
             ;;
-        -i=*|--init-command=*)
-            INIT_COMMAND="${arg#*=}"
-            ;;
-        -c=*|--exit-command=*)
-            EXIT_COMMAND="${arg#*=}"
-            ;;
-        -p=*|-n=*|--pipe-name=*)
+        -n=*|--pipe-name=*)
             PIPE_NAME="${arg#*=}"
+            ;;
+        -h|--help)
+            echo "
+Usage: pyper [OPTION...]
+
+  -s=SHELL  , --shell=SHELL         SHELL is a string describing the path to
+                                    the program that will act as the server
+                                    (defaults to '$PIPED_SHELL')
+  -a=ARGS   , --args=ARGS           ARGS is a string describing the arguments
+                                    passed to the SHELL
+                                    (defaults to '$PIPED_SHELL_ARGS')
+  -k=STRING , --kill-string=STRING  STRING is a string used as a replacement for EOF,
+                                    when the input pipe receives KILL_STRING,
+                                    it exits the SHELL
+                                    (defaults to '$KILL_STRING')
+  -n=NAME   , --pipe-name=NAME      NAME is a string describing the base name
+                                    of the pipes used for communication.
+                                    Once pyper is started, it creates 3 named
+                                    pipes called 'PIPE_NAME_in', 'PIPE_NAME_out'
+                                    and 'PIPE_NAME_err' for stdin, stdout and
+                                    stderr respectively.
+                                    (defaults to '$PIPE_NAME')
+Program made by Soulthym
+Git Repo at : https://github.com/Soulthym/pyper/
+"
+            exit 0
             ;;
     esac
 done
+PIPE_NAME_IN="$PIPE_NAME""_in"
+PIPE_NAME_OUT="$PIPE_NAME""_out"
+PIPE_NAME_ERR="$PIPE_NAME""_err"
+echo stdin  :coming from $PIPE_NAME_IN
+echo stdout :coming from $PIPE_NAME_OUT
 
-mkfifo "$PIPE_NAME"
-while [[ -a "$PIPE_NAME" ]]
-do
-    cat "$PIPE_NAME" | \
-        while read line
-        do
-            case "$line" in
-                "")
-                    ;;
-                "$KILL_STRING")
-                    echo "$EXIT_COMMAND"
-                    rm "$PIPE_NAME"
-                    break
-                    ;;
-                EOF)
-                    break
-                    ;;
-                *)
-                    echo "$line"
-                    ;;
+[ ! -p $PIPE_NAME_IN  ] && mkfifo $PIPE_NAME_IN
+[ ! -p $PIPE_NAME_OUT ] && mkfifo $PIPE_NAME_OUT
 
-            esac
-        done
-done | $PIPED_SHELL $SHELL_ARGS "$INIT_COMMAND"
+"$PIPED_SHELL" < $PIPE_NAME_IN  > $PIPE_NAME_OUT
+
+IFS=''
+while :; do
+    while read l; do
+        if [[ "$l" == "$KILL_STRING" ]]; then
+            break
+        fi
+        echo $l
+    done < $PIPE_NAME_IN
+done | \
+    eval "$PIPED_SHELL" $PIPED_SHELL_ARGS > $PIPE_NAME_OUT 2> $PIPE_NAME_ERR
+echo "Thanks for using pyper!"
+rm $PIPE_NAME_OUT $PIPE_NAME_IN $PIPE_NAME_ERR
