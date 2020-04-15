@@ -36,7 +36,6 @@ Git Repo at : https://github.com/Soulthym/pyper/
     esac
 done
 PIPE_DIR="$(mktemp -d)"
-mkdir $PIPE_DIR
 PIPE_IN="$PIPE_DIR""/in"
 PIPE_OUT="$PIPE_DIR""/out"
 PIPE_ERR="$PIPE_DIR""/err"
