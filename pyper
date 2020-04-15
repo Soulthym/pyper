@@ -1,5 +1,4 @@
-#! /usr/bin/sh
-PIPE_NAME=".pype"
+#! /usr/bin/bash
 KILL_STRING="KILL_PYPER"
 PIPED_SHELL="/bin/python3"
 PIPED_SHELL_ARGS='-i -c "import sys;sys.ps1 = \"\";sys.ps2 = \"\""'
@@ -15,9 +14,6 @@ do
         -k=*|--kill-string=*)
             KILL_STRING="${arg#*=}"
             ;;
-        -n=*|--pipe-name=*)
-            PIPE_NAME="${arg#*=}"
-            ;;
         -h|--help)
             echo "
 Usage: pyper [OPTION...]
@@ -32,13 +28,6 @@ Usage: pyper [OPTION...]
                                     when the input pipe receives KILL_STRING,
                                     it exits the SHELL
                                     (defaults to '$KILL_STRING')
-  -n=NAME   , --pipe-name=NAME      NAME is a string describing the base name
-                                    of the pipes used for communication.
-                                    Once pyper is started, it creates 3 named
-                                    pipes called 'PIPE_NAME_in', 'PIPE_NAME_out'
-                                    and 'PIPE_NAME_err' for stdin, stdout and
-                                    stderr respectively.
-                                    (defaults to '$PIPE_NAME')
 Program made by Soulthym
 Git Repo at : https://github.com/Soulthym/pyper/
 "
@@ -46,26 +35,37 @@ Git Repo at : https://github.com/Soulthym/pyper/
             ;;
     esac
 done
-PIPE_NAME_IN="$PIPE_NAME""_in"
-PIPE_NAME_OUT="$PIPE_NAME""_out"
-PIPE_NAME_ERR="$PIPE_NAME""_err"
-echo stdin  :coming from $PIPE_NAME_IN
-echo stdout :coming from $PIPE_NAME_OUT
+PIPE_DIR="/tmp/tmp.YeFKPsDCHr" #"$(mktemp -d)"
+mkdir $PIPE_DIR
+PIPE_IN="$PIPE_DIR""/in"
+PIPE_OUT="$PIPE_DIR""/out"
+PIPE_ERR="$PIPE_DIR""/err"
+echo $PIPE_DIR
+echo stdin  :coming from $PIPE_IN
+echo stdout :coming from $PIPE_OUT
+echo stderr :coming from $PIPE_ERR
 
-[ ! -p $PIPE_NAME_IN  ] && mkfifo $PIPE_NAME_IN
-[ ! -p $PIPE_NAME_OUT ] && mkfifo $PIPE_NAME_OUT
+[ ! -p $PIPE_IN  ] && mkfifo $PIPE_IN
+[ ! -p $PIPE_OUT ] && mkfifo $PIPE_OUT
+[ ! -p $PIPE_ERR ] && mkfifo $PIPE_ERR
 
-"$PIPED_SHELL" < $PIPE_NAME_IN  > $PIPE_NAME_OUT
-
+running=1
 IFS=''
-while :; do
-    while read l; do
-        if [[ "$l" == "$KILL_STRING" ]]; then
+while [ $running = 1 ]; do
+    block=""
+    while read -r line; do
+        if [ "$line" = "$KILL_STRING" ]; then
+            running=0
             break
-        fi
-        echo $l
-    done < $PIPE_NAME_IN
-done | \
-    eval "$PIPED_SHELL" $PIPED_SHELL_ARGS > $PIPE_NAME_OUT 2> $PIPE_NAME_ERR
+        elif [ "$line" != EOF ]; then
+            block+="$line
+"
+        fi 
+    done < "$PIPE_IN"
+    echo -n "$block"
+done | tee >(eval "$PIPED_SHELL" $PIPED_SHELL_ARGS 1> "$PIPE_OUT" 2> "$PIPE_ERR")
+echo
 echo "Thanks for using pyper!"
-rm $PIPE_NAME_OUT $PIPE_NAME_IN $PIPE_NAME_ERR
+rm $PIPE_OUT $PIPE_IN $PIPE_ERR
+rmdir $PIPE_DIR
+exit 0
