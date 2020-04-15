@@ -2,6 +2,7 @@
 KILL_STRING="KILL_PYPER"
 PIPED_SHELL="/bin/python3"
 PIPED_SHELL_ARGS='-i -c "import sys;sys.ps1 = \"\";sys.ps2 = \"\""'
+DAEMON=0
 for arg in "$@"
 do
     case $arg in
@@ -14,9 +15,12 @@ do
         -k=*|--kill-string=*)
             KILL_STRING="${arg#*=}"
             ;;
+        -d|--daemon)
+            DAEMON=1
+            ;;
         -h|--help)
             echo "
-Usage: pyper [OPTION...]
+Usage: piper [OPTION...]
 
   -s=SHELL  , --shell=SHELL         SHELL is a string describing the path to
                                     the program that will act as the server
@@ -28,6 +32,12 @@ Usage: pyper [OPTION...]
                                     when the input pipe receives KILL_STRING,
                                     it exits the SHELL
                                     (defaults to '$KILL_STRING')
+  -d        ,  --daemon             Start as a daemon,
+                                    if this flag is set, it will run as a daemon in the background
+                                    NOTE: if the --daemon flag is set,
+                                    the daemon will run outside the current shell,
+                                    so killing the shell will NOT kill the daemon!
+                                    It is up to you to find its PID and kill it yourself when needed!
 Program made by Soulthym
 Git Repo at : https://github.com/Soulthym/pyper/
 "
@@ -36,32 +46,41 @@ Git Repo at : https://github.com/Soulthym/pyper/
     esac
 done
 PIPE_DIR="$(mktemp -d)"
-PIPE_IN="$PIPE_DIR""/in"
-PIPE_OUT="$PIPE_DIR""/out"
-PIPE_ERR="$PIPE_DIR""/err"
-echo $PIPE_DIR
+export PIPE_LOCATION="$PIPE_DIR"
 
-[ ! -p $PIPE_IN  ] && mkfifo $PIPE_IN
-[ ! -p $PIPE_OUT ] && mkfifo $PIPE_OUT
-[ ! -p $PIPE_ERR ] && mkfifo $PIPE_ERR
+server () (
+    PIPE_IN="$PIPE_DIR""/in"
+    PIPE_OUT="$PIPE_DIR""/out"
+    PIPE_ERR="$PIPE_DIR""/err"
+    echo $PIPE_DIR
 
-running=1
-IFS=''
-while [ $running = 1 ]; do
-    block=""
-    while read -r line; do
-        if [ "$line" = "$KILL_STRING" ]; then
-            running=0
-            break
-        elif [ "$line" != EOF ]; then
-            block+="$line
+    [ ! -p $PIPE_IN  ] && mkfifo $PIPE_IN
+    [ ! -p $PIPE_OUT ] && mkfifo $PIPE_OUT
+    [ ! -p $PIPE_ERR ] && mkfifo $PIPE_ERR
+
+    running=1
+    IFS=''
+    while [ $running = 1 ]; do
+        block=""
+        while read -r line; do
+            if [ "$line" = "$KILL_STRING" ]; then
+                running=0
+                break
+            elif [ "$line" != EOF ]; then
+                block+="$line
 "
-        fi 
-    done < "$PIPE_IN"
-    echo -n "$block"
-done | tee >(eval "$PIPED_SHELL" $PIPED_SHELL_ARGS 1> "$PIPE_OUT" 2> "$PIPE_ERR")
-echo
-echo "Thanks for using pyper!"
-rm $PIPE_OUT $PIPE_IN $PIPE_ERR
-rmdir $PIPE_DIR
-exit 0
+            fi
+        done < "$PIPE_IN"
+        echo -n "$block"
+    done | tee >(eval "$PIPED_SHELL" $PIPED_SHELL_ARGS 1> "$PIPE_OUT" 2> "$PIPE_ERR")
+    echo
+    echo "Thanks for using pyper!"
+    rm $PIPE_OUT $PIPE_IN $PIPE_ERR
+    rmdir $PIPE_DIR
+    exit 0
+)
+if [ $DAEMON = 1 ]; then
+    server &
+else
+    server
+fi
