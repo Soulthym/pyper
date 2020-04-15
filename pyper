@@ -35,15 +35,12 @@ Git Repo at : https://github.com/Soulthym/pyper/
             ;;
     esac
 done
-PIPE_DIR="/tmp/tmp.YeFKPsDCHr" #"$(mktemp -d)"
+PIPE_DIR="$(mktemp -d)"
 mkdir $PIPE_DIR
 PIPE_IN="$PIPE_DIR""/in"
 PIPE_OUT="$PIPE_DIR""/out"
 PIPE_ERR="$PIPE_DIR""/err"
 echo $PIPE_DIR
-echo stdin  :coming from $PIPE_IN
-echo stdout :coming from $PIPE_OUT
-echo stderr :coming from $PIPE_ERR
 
 [ ! -p $PIPE_IN  ] && mkfifo $PIPE_IN
 [ ! -p $PIPE_OUT ] && mkfifo $PIPE_OUT
